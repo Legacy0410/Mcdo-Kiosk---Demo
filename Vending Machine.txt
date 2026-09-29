@@ -1,0 +1,496 @@
+import tkinter as tk
+
+class AndoysVendingMachine:
+
+    def __init__(self, root):
+
+        self.root = root
+        self.root.title("Andoy's Vending Machine")
+        self.root.geometry("1200x760")
+        self.root.configure(bg="#F6F1EB")
+
+        # ================= ITEMS =================
+        self.items = {
+            "A1": {"name": "Piattos Cheese", "price": 35.00, "stock": 6},
+            "A2": {"name": "Nagaraya BBQ", "price": 25.00, "stock": 8},
+            "A3": {"name": "Fudgee Bar", "price": 15.00, "stock": 5},
+            "A4": {"name": "Chippy BBQ", "price": 20.00, "stock": 7},
+
+            "B1": {"name": "Coke Can", "price": 45.00, "stock": 5},
+            "B2": {"name": "C2 Green Tea", "price": 30.00, "stock": 4},
+            "B3": {"name": "Kopiko Lucky Day", "price": 40.00, "stock": 7},
+            "B4": {"name": "Royal Tru Orange", "price": 25.00, "stock": 9},
+
+            "C1": {"name": "SkyFlakes", "price": 12.00, "stock": 0},
+            "C2": {"name": "Nova Cheddar", "price": 35.00, "stock": 5},
+            "C3": {"name": "Mineral Water", "price": 20.00, "stock": 10},
+            "C4": {"name": "Cloud 9", "price": 10.00, "stock": 12},
+
+            "D1": {"name": "Oishi Prawn Crackers", "price": 18.00, "stock": 6},
+            "D2": {"name": "Hansel Mocha", "price": 14.00, "stock": 11},
+            "D3": {"name": "Milo Drink", "price": 22.00, "stock": 8},
+            "D4": {"name": "Zesto Juice", "price": 15.00, "stock": 10},
+        }
+
+        self.inserted_balance = 0.0
+        self.selected_code = tk.StringVar()
+
+        self.cart = []
+
+        # COLORS
+        self.COLOR_BG = "#F6F1EB"
+        self.COLOR_PANEL = "#FFFDF9"
+        self.COLOR_PRIMARY = "#5C3D2E"
+        self.COLOR_ACCENT = "#E07A5F"
+        self.COLOR_TEXT = "#2B2B2B"
+        self.COLOR_DANGER = "#C1121F"
+        self.COLOR_SUCCESS = "#2A9D8F"
+
+        self.create_layout()
+
+    # ================= UI =================
+    def create_layout(self):
+
+        header = tk.Frame(self.root, bg=self.COLOR_PRIMARY, height=80)
+        header.pack(fill="x")
+
+        tk.Label(
+            header,
+            text="ANDOY'S VENDING SYSTEM",
+            bg=self.COLOR_PRIMARY,
+            fg="white",
+            font=("Georgia", 24, "bold")
+        ).pack(pady=20)
+
+        main = tk.Frame(self.root, bg=self.COLOR_BG)
+        main.pack(fill="both", expand=True, padx=15, pady=10)
+
+        self.product_area = tk.Frame(main, bg=self.COLOR_BG)
+        self.product_area.pack(side="top", fill="both", expand=True)
+
+        self.build_products()
+
+        bottom = tk.Frame(main, bg=self.COLOR_PANEL, height=260)
+        bottom.pack(side="bottom", fill="x")
+        bottom.pack_propagate(False)
+
+        left = tk.Frame(bottom, bg=self.COLOR_PANEL)
+        left.pack(side="left", fill="both", expand=True, padx=10, pady=10)
+
+        # ================= SCREEN =================
+        screen = tk.Frame(left, bg="#1F1B1A", height=150)
+        screen.pack(fill="x")
+        screen.pack_propagate(False)
+
+        self.display_msg = tk.Label(
+            screen,
+            text="SYSTEM READY\nWelcome!",
+            bg="#1F1B1A",
+            fg="#00FF9C",
+            font=("Consolas", 10, "bold"),
+            anchor="nw",
+            justify="left"
+        )
+        self.display_msg.place(x=10, y=10)
+
+        # CART TOTAL — shown mid-screen, updates as items are added
+        self.display_total = tk.Label(
+            screen,
+            text="CART TOTAL: ₱0.00",
+            bg="#1F1B1A",
+            fg="#F4A261",
+            font=("Consolas", 11, "bold")
+        )
+        self.display_total.place(x=10, y=110)
+
+        # FIXED CREDIT POSITION
+        self.display_balance = tk.Label(
+            screen,
+            text="CREDIT: ₱0.00",
+            bg="#1F1B1A",
+            fg="#FFD166",
+            font=("Consolas", 11, "bold")
+        )
+        self.display_balance.place(x=10, y=128)
+
+        tk.Label(
+            left,
+            text="ITEM CODE INPUT",
+            bg=self.COLOR_PANEL,
+            font=("Trebuchet MS", 10, "bold")
+        ).pack(anchor="w")
+
+        self.code_input = tk.Entry(
+            left,
+            textvariable=self.selected_code,
+            font=("Verdana", 14, "bold"),
+            justify="center"
+        )
+        self.code_input.pack(fill="x", ipady=6)
+        self.code_input.bind("<KeyRelease>", lambda e: self.on_typing())
+
+        # ================= BUTTONS =================
+        tk.Button(
+            left,
+            text="ADD TO CART",
+            bg=self.COLOR_SUCCESS,
+            fg="white",
+            font=("Verdana", 8, "bold"),
+            command=self.add_to_cart,
+            height=1
+        ).pack(fill="x", pady=2, ipady=2)
+
+        # ================= RIGHT SIDE =================
+        right = tk.Frame(bottom, bg=self.COLOR_PANEL)
+        right.pack(side="right", fill="y", padx=10, pady=10)
+
+        tk.Label(
+            right,
+            text="INSERT MONEY",
+            bg=self.COLOR_PANEL,
+            font=("Trebuchet MS", 10, "bold")
+        ).pack(anchor="w")
+
+        grid = tk.Frame(right, bg=self.COLOR_PANEL)
+        grid.pack()
+
+        values = [1, 5, 10, 20, 50, 100]
+
+        r = c = 0
+
+        for v in values:
+
+            tk.Button(
+                grid,
+                text=f"₱{v}",
+                command=lambda x=v: self.add_cash(x),
+                bg="#E7D3C6",
+                font=("Verdana", 10, "bold")
+            ).grid(row=r, column=c, padx=4, pady=4, ipadx=14, ipady=10)
+
+            c += 1
+
+            if c > 2:
+                c = 0
+                r += 1
+
+        tk.Button(
+            right,
+            text="PURCHASE ITEM",
+            bg=self.COLOR_ACCENT,
+            fg="white",
+            font=("Verdana", 8, "bold"),
+            command=self.purchase_item,
+            height=1
+        ).pack(fill="x", pady=(4, 2), ipady=2)
+
+        tk.Button(
+            right,
+            text="RETURN FUNDS",
+            bg="#E5E7EB",
+            font=("Verdana", 8, "bold"),
+            command=self.cancel_transaction,
+            height=1
+        ).pack(fill="x", ipady=2)
+
+        tk.Button(
+            right,
+            text="REMOVE LAST ITEM",
+            bg=self.COLOR_DANGER,
+            fg="white",
+            font=("Verdana", 8, "bold"),
+            command=self.remove_last_item,
+            height=1
+        ).pack(fill="x", pady=(2, 0), ipady=2)
+
+    # ================= PRODUCT GRID =================
+    def build_products(self):
+
+        for w in self.product_area.winfo_children():
+            w.destroy()
+
+        cols = 4
+
+        for i in range(cols):
+            self.product_area.columnconfigure(i, weight=1)
+
+        r = c = 0
+
+        for code, item in self.items.items():
+
+            card = tk.Frame(
+                self.product_area,
+                bg="#FFFFFF",
+                width=220,
+                height=180,
+                highlightbackground="#CBB9A8",
+                highlightthickness=1
+            )
+
+            card.grid(row=r, column=c, padx=8, pady=8, sticky="nsew")
+            card.grid_propagate(False)
+
+            tk.Label(
+                card,
+                text=code,
+                bg=self.COLOR_PRIMARY,
+                fg="white",
+                font=("Consolas", 10, "bold")
+            ).pack(anchor="nw", padx=6, pady=6)
+
+            tk.Label(
+                card,
+                text=item["name"],
+                bg="#FFFFFF",
+                fg=self.COLOR_TEXT,
+                font=("Trebuchet MS", 10, "bold")
+            ).pack()
+
+            tk.Label(
+                card,
+                text=f"PRICE: ₱{item['price']:.2f}",
+                bg="#FFFFFF",
+                fg=self.COLOR_SUCCESS,
+                font=("Verdana", 10, "bold")
+            ).pack()
+
+            tk.Label(
+                card,
+                text=f"STOCK: {item['stock']}",
+                bg="#FFFFFF",
+                fg="#444",
+                font=("Verdana", 9, "bold")
+            ).pack(side="bottom", pady=8)
+
+            c += 1
+
+            if c > 3:
+                c = 0
+                r += 1
+
+    # ================= CART DISPLAY =================
+    def update_cart_display(self):
+
+        # Always recalculate and update the total label
+        total = sum(self.items[code]["price"] for code in self.cart)
+        self.display_total.config(text=f"CART TOTAL: ₱{total:.2f}")
+
+        if not self.cart:
+            self.display_msg.config(text="CART EMPTY")
+            self.display_total.config(text="CART TOTAL: ₱0.00")
+            return
+
+        columns = ["", "", ""]
+
+        for index, code in enumerate(self.cart):
+
+            item = self.items[code]
+
+            column = index // 4  # every 4 items, move to the next column
+
+            columns[column] += (
+                f"{code} ₱{item['price']:.0f}\n"
+            )
+
+        display_text = "CART:\n"
+
+        rows = 4
+
+        for row in range(rows):
+
+            line = ""
+
+            for col in columns:
+
+                items = col.strip().split("\n")
+
+                if row < len(items):
+                    line += f"{items[row]:<18}"
+
+            display_text += line + "\n"
+
+        self.display_msg.config(text=display_text)
+
+    # ================= DISPENSE DISPLAY =================
+    def display_dispensed_items(self, purchased_names, change):
+
+        columns = ["", "", ""]
+
+        for index, name in enumerate(purchased_names):
+
+            column = index // 4
+
+            columns[column] += f"{name}\n"
+
+        display_text = "ITEMS DISPENSED:\n\n"
+
+        rows = 4
+
+        for row in range(rows):
+
+            line = ""
+
+            for col in columns:
+
+                items = col.strip().split("\n")
+
+                if row < len(items):
+                    line += f"{items[row]:<22}"
+
+            display_text += line + "\n"
+
+        self.display_msg.config(text=display_text)
+
+        # Show change clearly on the total label row
+        self.display_total.config(
+            text=f"CHANGE RETURNED: ₱{change:.2f}",
+            fg="#00FF9C"   # bright green to stand out
+        )
+
+    # ================= LOGIC =================
+    def on_typing(self):
+        self.selected_code.set(self.selected_code.get().upper())
+
+    def add_to_cart(self):
+
+        code = self.selected_code.get().strip().upper()
+
+        if not code:
+            self.display_msg.config(text="ENTER ITEM CODE")
+            return
+
+        if code not in self.items:
+            self.display_msg.config(text="INVALID CODE")
+            return
+
+        item = self.items[code]
+
+        if item["stock"] <= 0:
+            self.display_msg.config(text=f"{item['name']} OUT OF STOCK")
+            return
+
+        item["stock"] -= 1
+
+        self.cart.append(code)
+
+        self.build_products()
+
+        # Reset total label color in case it was green from a previous purchase
+        self.display_total.config(fg="#F4A261")
+
+        self.update_cart_display()
+
+        self.selected_code.set("")
+
+    def remove_last_item(self):
+
+        if not self.cart:
+            self.display_msg.config(text="CART IS EMPTY")
+            return
+
+        removed_code = self.cart.pop()
+
+        # RETURN STOCK
+        self.items[removed_code]["stock"] += 1
+
+        self.build_products()
+
+        self.update_cart_display()
+
+    def add_cash(self, v):
+
+        self.inserted_balance += v
+
+        self.display_balance.config(
+            text=f"CREDIT: ₱{self.inserted_balance:.2f}"
+        )
+
+    def cancel_transaction(self):
+
+        if self.inserted_balance > 0:
+
+            refund = self.inserted_balance
+
+            # RETURN STOCKS
+            for code in self.cart:
+                self.items[code]["stock"] += 1
+
+            self.build_products()
+
+            self.inserted_balance = 0
+            self.selected_code.set("")
+            self.cart = []
+
+            self.display_msg.config(
+                text=f"FUNDS RETURNED ₱{refund:.2f}"
+            )
+
+            self.display_balance.config(text="CREDIT: ₱0.00")
+            self.display_total.config(text="CART TOTAL: ₱0.00", fg="#F4A261")
+
+        else:
+            self.display_msg.config(text="NO BALANCE")
+
+    def purchase_item(self):
+
+        if not self.cart:
+
+            code = self.selected_code.get().strip().upper()
+
+            if code:
+
+                if code not in self.items:
+                    self.display_msg.config(text="INVALID CODE")
+                    return
+
+                item = self.items[code]
+
+                if item["stock"] <= 0:
+                    self.display_msg.config(
+                        text=f"{item['name']} OUT OF STOCK"
+                    )
+                    return
+
+                item["stock"] -= 1
+
+                self.cart.append(code)
+
+                self.build_products()
+
+            else:
+                self.display_msg.config(text="NO ITEMS SELECTED")
+                return
+
+        total = 0
+        purchased_names = []
+
+        for code in self.cart:
+
+            item = self.items[code]
+
+            total += item["price"]
+
+            purchased_names.append(item["name"])
+
+        if self.inserted_balance < total:
+            self.display_msg.config(text="INSUFFICIENT FUNDS")
+            return
+
+        change = self.inserted_balance - total
+
+        self.inserted_balance = 0
+        self.selected_code.set("")
+        self.cart = []
+
+        self.display_balance.config(text="CREDIT: ₱0.00")
+
+        self.display_dispensed_items(purchased_names, change)
+
+# ================= RUN =================
+if __name__ == "__main__":
+
+    root = tk.Tk()
+
+    app = AndoysVendingMachine(root)
+
+    root.mainloop()

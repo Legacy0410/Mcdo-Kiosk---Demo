@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vending Machine — Philippine Peso</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f5f5f0;
+      color: #1a1a1a;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 20px;
+      font-weight: 500;
+      margin-bottom: 1.5rem;
+      color: #1a1a1a;
+    }
+
+    #app {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .panel {
+      background: #ffffff;
+      border: 0.5px solid rgba(0,0,0,0.12);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .panel-title {
+      font-size: 11px;
+      color: #888;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+
+    /* Screen / Log */
+    #screen {
+      background: #0d1117;
+      border-radius: 8px;
+      padding: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #58a6ff;
+      min-height: 80px;
+      max-height: 150px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.7;
+      grid-column: 1 / -1;
+      border: 0.5px solid #30363d;
+    }
+    #screen .ok   { color: #3fb950; }
+    #screen .err  { color: #f85149; }
+    #screen .warn { color: #e3b341; }
+    #screen .dim  { color: #8b949e; }
+
+    /* Inventory list */
+    .item-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 0;
+      border-bottom: 0.5px solid rgba(0,0,0,0.08);
+    }
+    .item-row:last-child { border-bottom: none; }
+    .code-badge {
+      font-family: monospace;
+      font-size: 10px;
+      font-weight: 500;
+      background: #e6f1fb;
+      color: #0c447c;
+      padding: 2px 6px;
+      border-radius: 4px;
+      min-width: 28px;
+      text-align: center;
+    }
+    .item-name  { flex: 1; font-size: 12px; color: #1a1a1a; }
+    .item-price { font-family: monospace; font-size: 12px; color: #555; }
+    .item-qty   { font-size: 11px; padding: 1px 6px; border-radius: 4px; font-family: monospace; }
+    .qty-ok  { background: #eaf3de; color: #3b6d11; }
+    .qty-low { background: #faeeda; color: #854f0b; }
+    .qty-out { background: #fcebeb; color: #a32d2d; }
+
+    /* Keypad */
+    #keypad-wrap { display: flex; flex-direction: column; gap: 10px; }
+    #code-display {
+      background: #f5f5f0;
+      border: 0.5px solid rgba(0,0,0,0.2);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-family: monospace;
+      font-size: 20px;
+      font-weight: 500;
+      color: #1a1a1a;
+      min-height: 42px;
+      letter-spacing: 3px;
+      text-align: center;
+    }
+    .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .key {
+      padding: 10px 4px;
+      font-size: 13px;
+      font-family: monospace;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 8px;
+      border: 0.5px solid rgba(0,0,0,0.15);
+      background: #f5f5f0;
+      color: #1a1a1a;
+      transition: background 0.1s;
+    }
+    .key:hover  { background: #e8e8e3; }
+    .key:active { transform: scale(0.96); }
+    .key-add { background: #e6f1fb; color: #0c447c; border-color: transparent; }
+    .key-del { background: #fcebeb; color: #a32d2d; border-color: transparent; }
+
+    /* Cart */
+    #cart-list { min-height: 60px; display: flex; flex-direction: column; gap: 4px; }
+    .cart-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      background: #f5f5f0;
+      border-radius: 8px;
+    }
+    .cart-item-name { flex: 1; font-size: 12px; color: #1a1a1a; }
+    .qty-ctrl { display: flex; align-items: center; gap: 6px; }
+    .qty-btn {
+      width: 22px; height: 22px;
+      border-radius: 4px;
+      border: 0.5px solid rgba(0,0,0,0.15);
+      background: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+      color: #1a1a1a;
+    }
+    .qty-btn:hover { background: #e8e8e3; }
+    .qty-num { font-family: monospace; font-size: 12px; min-width: 16px; text-align: center; color: #1a1a1a; }
+    .cart-subtotal { font-family: monospace; font-size: 12px; color: #555; }
+    .rm-btn { background: none; border: none; cursor: pointer; color: #a32d2d; font-size: 14px; padding: 2px 4px; }
+    #cart-total-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding-top: 8px;
+      border-top: 0.5px solid rgba(0,0,0,0.1);
+      margin-top: 4px;
+    }
+    #cart-total-label { font-size: 12px; color: #888; }
+    #cart-total-val   { font-family: monospace; font-size: 16px; font-weight: 500; color: #1a1a1a; }
+    .empty-cart { font-size: 12px; color: #aaa; text-align: center; padding: 12px 0; }
+
+    /* Coins */
+    #coins-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .coin-btn {
+      padding: 8px 4px;
+      font-size: 12px;
+      font-family: monospace;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 8px;
+      border: 0.5px solid rgba(0,0,0,0.15);
+      background: #f5f5f0;
+      color: #1a1a1a;
+      transition: background 0.1s;
+    }
+    .coin-btn:hover  { background: #e8e8e3; }
+    .coin-btn:active { transform: scale(0.96); }
+
+    /* Balance */
+    #balance-box {
+      background: #0d1117;
+      border-radius: 8px;
+      padding: 8px 12px;
+      text-align: center;
+      border: 0.5px solid #30363d;
+      margin-top: 10px;
+    }
+    #balance-lbl { font-size: 10px; color: #8b949e; letter-spacing: 0.5px; }
+    #balance-val { font-size: 20px; font-weight: 500; color: #3fb950; font-family: monospace; }
+
+    /* Action buttons */
+    .act-btn {
+      width: 100%;
+      padding: 9px;
+      font-size: 13px;
+      border-radius: 8px;
+      border: 0.5px solid rgba(0,0,0,0.15);
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .act-btn:active   { transform: scale(0.98); }
+    .act-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    #btn-pay    { background: #eaf3de; color: #3b6d11; border-color: transparent; }
+    #btn-cancel { background: #fcebeb; color: #a32d2d; border-color: transparent; margin-top: 6px; }
+    #btn-clear  { background: #faeeda; color: #854f0b; border-color: transparent; margin-top: 8px; }
+
+    @media (max-width: 520px) {
+      #app { grid-template-columns: 1fr; }
+      #screen { grid-column: 1; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>&#x20B1; Vending Machine</h1>
+
+<div id="app">
+
+  <!-- Terminal log -->
+  <div id="screen">Vending machine ready. <span class="dim">Enter a code on the keypad and press Add to cart.</span></div>
+
+  <!-- Inventory -->
+  <div class="panel">
+    <div class="panel-title">Available items</div>
+    <div id="item-list"></div>
+  </div>
+
+  <!-- Keypad -->
+  <div class="panel" id="keypad-wrap">
+    <div class="panel-title">Enter item code</div>
+    <div id="code-display">_</div>
+    <div class="keypad">
+      <button class="key" onclick="kp('A')">A</button>
+      <button class="key" onclick="kp('B')">B</button>
+      <button class="key" onclick="kp('C')">C</button>
+      <button class="key" onclick="kp('1')">1</button>
+      <button class="key" onclick="kp('2')">2</button>
+      <button class="key" onclick="kp('3')">3</button>
+      <button class="key key-del" onclick="kpDel()">&#x232B; Del</button>
+      <button class="key key-add" onclick="addToCart()">+ Add</button>
+    </div>
+  </div>
+
+  <!-- Cart -->
+  <div class="panel" style="grid-column: 1 / -1;">
+    <div class="panel-title">Cart</div>
+    <div id="cart-list"><div class="empty-cart">No items added yet</div></div>
+    <div id="cart-total-row">
+      <span id="cart-total-label">Total</span>
+      <span id="cart-total-val">&#x20B1;0.00</span>
+    </div>
+    <button class="act-btn" id="btn-clear" onclick="clearCart()">&#x1F5D1; Clear cart</button>
+  </div>
+
+  <!-- Payment -->
+  <div class="panel">
+    <div class="panel-title">Insert coins / bills</div>
+    <div id="coins-grid">
+      <button class="coin-btn" onclick="addMoney(1)">&#x20B1;1</button>
+      <button class="coin-btn" onclick="addMoney(5)">&#x20B1;5</button>
+      <button class="coin-btn" onclick="addMoney(10)">&#x20B1;10</button>
+      <button class="coin-btn" onclick="addMoney(20)">&#x20B1;20</button>
+      <button class="coin-btn" onclick="addMoney(50)">&#x20B1;50</button>
+      <button class="coin-btn" onclick="addMoney(100)">&#x20B1;100</button>
+      <button class="coin-btn" onclick="addMoney(200)">&#x20B1;200</button>
+      <button class="coin-btn" onclick="addMoney(500)">&#x20B1;500</button>
+      <button class="coin-btn" onclick="addMoney(1000)">&#x20B1;1000</button>
+    </div>
+    <div id="balance-box">
+      <div id="balance-lbl">INSERTED</div>
+      <div id="balance-val">&#x20B1;0.00</div>
+    </div>
+  </div>
+
+  <!-- Checkout -->
+  <div class="panel" style="display: flex; flex-direction: column; gap: 6px;">
+    <div class="panel-title">Checkout</div>
+    <button class="act-btn" id="btn-pay" onclick="checkout()" disabled>&#x1F4B3; Pay &amp; dispense all</button>
+    <button class="act-btn" id="btn-cancel" onclick="cancelTx()">&#x2715; Cancel &amp; return coins</button>
+  </div>
+
+</div>
+
+<script>
+  const inv = [
+    { code: 'A1', name: 'Cola',         price: 35,  qty: 5  },
+    { code: 'A2', name: 'Water',         price: 20,  qty: 8  },
+    { code: 'A3', name: 'Orange Juice',  price: 45,  qty: 3  },
+    { code: 'B1', name: 'Chips',         price: 30,  qty: 6  },
+    { code: 'B2', name: 'Chocolate',     price: 40,  qty: 4  },
+    { code: 'B3', name: 'Granola Bar',   price: 55,  qty: 2  },
+    { code: 'C1', name: 'Gum',           price: 15,  qty: 10 },
+    { code: 'C2', name: 'Mints',         price: 10,  qty: 0  },
+    { code: 'C3', name: 'Cookies',       price: 35,  qty: 3  },
+  ];
+
+  let cart = {};
+  let balance = 0;
+  let codeInput = '';
+
+  function fmt(n) { return '\u20B1' + n.toFixed(2); }
+  function r(n)   { return Math.round(n * 100) / 100; }
+
+  function log(msg, cls = '') {
+    const s = document.getElementById('screen');
+    const sp = document.createElement('span');
+    if (cls) sp.className = cls;
+    sp.textContent = msg;
+    s.appendChild(document.createTextNode('\n'));
+    s.appendChild(sp);
+    s.scrollTop = s.scrollHeight;
+  }
+
+  function renderInventory() {
+    const el = document.getElementById('item-list');
+    el.innerHTML = '';
+    inv.forEach(item => {
+      const qc = item.qty === 0 ? 'qty-out' : item.qty <= 2 ? 'qty-low' : 'qty-ok';
+      const ql = item.qty === 0 ? 'Out' : 'x' + item.qty;
+      el.innerHTML += `
+        <div class="item-row">
+          <span class="code-badge">${item.code}</span>
+          <span class="item-name">${item.name}</span>
+          <span class="item-price">${fmt(item.price)}</span>
+          <span class="item-qty ${qc}">${ql}</span>
+        </div>`;
+    });
+  }
+
+  function renderCart() {
+    const el = document.getElementById('cart-list');
+    const keys = Object.keys(cart);
+    if (!keys.length) {
+      el.innerHTML = '<div class="empty-cart">No items added yet</div>';
+      updateTotal();
+      return;
+    }
+    el.innerHTML = '';
+    keys.forEach(code => {
+      const { item, qty } = cart[code];
+      const sub = r(item.price * qty);
+      el.innerHTML += `
+        <div class="cart-item">
+          <span class="code-badge">${code}</span>
+          <span class="cart-item-name">${item.name}</span>
+          <div class="qty-ctrl">
+            <button class="qty-btn" onclick="changeQty('${code}', -1)">&#x2212;</button>
+            <span class="qty-num">${qty}</span>
+            <button class="qty-btn" onclick="changeQty('${code}', 1)">+</button>
+          </div>
+          <span class="cart-subtotal">${fmt(sub)}</span>
+          <button class="rm-btn" onclick="removeItem('${code}')" title="Remove">&#x2715;</button>
+        </div>`;
+    });
+    updateTotal();
+  }
+
+  function cartTotal() {
+    return r(Object.values(cart).reduce((s, { item, qty }) => s + item.price * qty, 0));
+  }
+
+  function updateTotal() {
+    document.getElementById('cart-total-val').textContent = fmt(cartTotal());
+    document.getElementById('btn-pay').disabled =
+      !Object.keys(cart).length || balance < cartTotal();
+  }
+
+  function kp(ch) {
+    if (codeInput.length >= 2) codeInput = '';
+    codeInput += ch;
+    document.getElementById('code-display').textContent = codeInput || '_';
+  }
+
+  function kpDel() {
+    codeInput = codeInput.slice(0, -1);
+    document.getElementById('code-display').textContent = codeInput || '_';
+  }
+
+  function addToCart() {
+    const code = codeInput.toUpperCase();
+    codeInput = '';
+    document.getElementById('code-display').textContent = '_';
+    const item = inv.find(i => i.code === code);
+    if (!item) { log(`Invalid code: "${code}"`, 'err'); return; }
+    const inCart = cart[code] ? cart[code].qty : 0;
+    if (item.qty <= inCart) {
+      log(`${item.name} — not enough stock (${item.qty} available).`, 'err');
+      return;
+    }
+    if (cart[code]) { cart[code].qty++; }
+    else { cart[code] = { item, qty: 1 }; }
+    log(`Added ${item.name} to cart. (x${cart[code].qty})`, 'ok');
+    renderCart();
+    updateTotal();
+  }
+
+  function changeQty(code, delta) {
+    if (!cart[code]) return;
+    const item = inv.find(i => i.code === code);
+    const newQty = cart[code].qty + delta;
+    if (newQty <= 0) { removeItem(code); return; }
+    if (newQty > item.qty) {
+      log(`Only ${item.qty} of ${item.name} in stock.`, 'warn');
+      return;
+    }
+    cart[code].qty = newQty;
+    renderCart();
+    updateTotal();
+  }
+
+  function removeItem(code) {
+    delete cart[code];
+    log(`Removed ${code} from cart.`, 'warn');
+    renderCart();
+    updateTotal();
+  }
+
+  function clearCart() {
+    if (!Object.keys(cart).length) { log('Cart is already empty.', 'dim'); return; }
+    cart = {};
+    log('Cart cleared.', 'warn');
+    renderCart();
+    updateTotal();
+  }
+
+  function addMoney(amount) {
+    balance = r(balance + amount);
+    document.getElementById('balance-val').textContent = fmt(balance);
+    log(`Inserted ${fmt(amount)}. Balance: ${fmt(balance)}`);
+    updateTotal();
+  }
+
+  function checkout() {
+    const total = cartTotal();
+    if (!Object.keys(cart).length) { log('Cart is empty.', 'err'); return; }
+    if (balance < total) {
+      log(`Insufficient payment. Need ${fmt(r(total - balance))} more.`, 'err');
+      return;
+    }
+    const change = r(balance - total);
+    log(`--- Dispensing ${Object.keys(cart).length} item type(s) ---`, 'ok');
+    Object.values(cart).forEach(({ item, qty }) => {
+      const found = inv.find(i => i.code === item.code);
+      found.qty -= qty;
+      log(`  ${item.name} x${qty} — ${fmt(r(item.price * qty))}`, 'ok');
+    });
+    log(`Total charged: ${fmt(total)}`, 'ok');
+    if (change > 0) {
+      log(`Change returned: ${fmt(change)}`, 'warn');
+      explainChange(change);
+    } else {
+      log('Exact payment. Thank you!', 'dim');
+    }
+    cart = {};
+    balance = 0;
+    document.getElementById('balance-val').textContent = '\u20B10.00';
+    renderCart();
+    renderInventory();
+    updateTotal();
+  }
+
+  function explainChange(change) {
+    const denoms = [1000, 500, 200, 100, 50, 20, 10, 5, 1];
+    const names  = ['₱1000','₱500','₱200','₱100','₱50','₱20','₱10','₱5','₱1'];
+    let rem = Math.round(change);
+    const parts = [];
+    denoms.forEach((d, i) => {
+      const n = Math.floor(rem / d);
+      if (n > 0) { parts.push(`${n}×${names[i]}`); rem -= n * d; }
+    });
+    if (parts.length) log('  Bills/coins: ' + parts.join(', '), 'warn');
+  }
+
+  function cancelTx() {
+    if (balance > 0) {
+      log(`Cancelled. Returning ${fmt(balance)}.`, 'err');
+      balance = 0;
+      document.getElementById('balance-val').textContent = '\u20B10.00';
+      updateTotal();
+    } else {
+      log('No payment to return.', 'dim');
+    }
+  }
+
+  renderInventory();
+  renderCart();
+</script>
+
+</body>
+</html>
